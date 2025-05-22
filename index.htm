@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Song Guessing Game</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background-color: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    button {
+      background: #1db954;
+      border: none;
+      padding: 10px 20px;
+      color: white;
+      margin: 10px;
+      font-size: 18px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #17a442;
+    }
+    .choices button {
+      display: block;
+      margin: 10px auto;
+      background: #333;
+    }
+    .choices button:hover {
+      background: #555;
+    }
+    #result {
+      font-size: 20px;
+      margin-top: 10px;
+    }
+    #score, #timer {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎵 Song Guessing Game</h1>
+  <audio id="audio" controls></audio>
+  <div class="choices" id="choices"></div>
+  <div id="result"></div>
+  <div id="score">Score: 0</div>
+  <div id="timer">Time left: <span id="time">15</span>s</div>
+  <button onclick="nextSong()">Next Song</button>
+  <button onclick="restartGame()">Restart</button>
+
+  <script>
+    let tracks = [];
+    let correctTrack = null;
+    let score = 0;
+    let timerInterval;
+    let timeLeft = 15;
+
+    async function fetchTopTracks() {
+      const response = await fetch('https://corsproxy.io/?https://api.deezer.com/chart/0/tracks');
+      const data = await response.json();
+      return data.data.filter(track => track.preview); // Only with preview available
+    }
+
+    function shuffle(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timeLeft = 15;
+      document.getElementById('time').textContent = timeLeft;
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('time').textContent = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById('result').textContent = `⏰ Time's up! It was "${correctTrack.title}"`;
+          disableChoices();
+        }
+      }, 1000);
+    }
+
+    function updateScore(points) {
+      score += points;
+      document.getElementById('score').textContent = `Score: ${score}`;
+    }
+
+    function disableChoices() {
+      const buttons = document.querySelectorAll('.choices button');
+      buttons.forEach(btn => btn.disabled = true);
+    }
+
+    function restartGame() {
+      score = 0;
+      updateScore(0);
+      nextSong();
+    }
+
+    async function nextSong() {
+      clearInterval(timerInterval);
+      document.getElementById('result').textContent = "";
+      if (tracks.length < 4) {
+        tracks = await fetchTopTracks();
+      }
+
+      correctTrack = tracks[Math.floor(Math.random() * tracks.length)];
+      document.getElementById('audio').src = correctTrack.preview;
+
+      const otherTitles = tracks
+        .filter(t => t.title !== correctTrack.title)
+        .map(t => t.title);
+
+      const choices = shuffle([correctTrack.title, ...shuffle(otherTitles).slice(0, 3)]);
+
+      const choicesDiv = document.getElementById('choices');
+      choicesDiv.innerHTML = "";
+      choices.forEach(title => {
+        const btn = document.createElement('button');
+        btn.textContent = title;
+        btn.onclick = () => {
+          clearInterval(timerInterval);
+          if (title === correctTrack.title) {
+            document.getElementById('result').textContent = "✅ Correct!";
+            updateScore(1);
+          } else {
+            document.getElementById('result').textContent = `❌ Wrong! It was "${correctTrack.title}"`;
+          }
+          disableChoices();
+        };
+        choicesDiv.appendChild(btn);
+      });
+
+      startTimer();
+    }
+
+    nextSong(); // Start first song
+  </script>
+
+</body>
+</html>
